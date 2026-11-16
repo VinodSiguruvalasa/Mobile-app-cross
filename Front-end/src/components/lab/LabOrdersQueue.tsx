@@ -6,6 +6,7 @@ import {
   User,
   ChevronRight,
   Filter,
+  Printer,
 } from "lucide-react";
 import { LabOrder } from "../../types/hms";
 
@@ -18,6 +19,7 @@ interface LabOrdersQueueProps {
   categoryFilter: string;
   setCategoryFilter: (category: string) => void;
   onSelectOrder: (order: LabOrder) => void;
+  onOpenPrint?: (order: LabOrder) => void;
 }
 
 export const LabOrdersQueue: React.FC<LabOrdersQueueProps> = ({
@@ -29,6 +31,7 @@ export const LabOrdersQueue: React.FC<LabOrdersQueueProps> = ({
   categoryFilter,
   setCategoryFilter,
   onSelectOrder,
+  onOpenPrint,
 }) => {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 flex flex-col space-y-4 w-full shadow-xl">
@@ -113,21 +116,24 @@ export const LabOrdersQueue: React.FC<LabOrdersQueueProps> = ({
               onClick={() => onSelectOrder(ord)}
               className="bg-slate-950 border border-slate-800 hover:border-purple-500/60 p-3.5 sm:p-4 rounded-2xl cursor-pointer transition-all duration-200 hover:bg-slate-900/80 shadow-md group space-y-3"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-3">
+              {/* Patient Top Row: Avatar, Name, ID & Status Badge */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-10 h-10 rounded-xl bg-purple-600/20 text-purple-300 flex items-center justify-center font-bold text-sm border border-purple-500/30 shrink-0">
                     <User className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
-                    <h4 className="font-extrabold text-white text-base group-hover:text-purple-300 transition-colors flex items-center gap-2 truncate">
+                    <h4 className="font-extrabold text-white text-sm sm:text-base group-hover:text-purple-300 transition-colors flex items-center gap-2 truncate">
                       {ord.patientName}
                     </h4>
-                    <p className="text-xs text-slate-500 font-mono truncate">Patient ID: {ord.patientId} • Order #{ord.id}</p>
+                    <p className="text-[11px] text-slate-500 font-mono truncate">
+                      Patient ID: {ord.patientId} • Order #{ord.id}
+                    </p>
                   </div>
                 </div>
 
                 <span
-                  className={`self-start sm:self-auto px-3 py-1 rounded-full text-xs font-extrabold shrink-0 ${
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold shrink-0 ${
                     ord.status === "Verified" || (ord.status as any) === "Completed"
                       ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
                       : ord.status === "In Analysis" || (ord.status as any) === "In Progress"
@@ -143,22 +149,48 @@ export const LabOrdersQueue: React.FC<LabOrdersQueueProps> = ({
                 </span>
               </div>
 
-              <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-                <div className="min-w-0">
+              {/* Patient Diagnostic Details Box */}
+              <div className="bg-slate-900/90 p-3 sm:p-3.5 rounded-xl border border-slate-800/80 flex flex-col space-y-2.5 text-xs w-full">
+                <div className="w-full">
                   <span className="text-[10px] text-purple-400 font-mono font-bold uppercase tracking-wider block">
                     {ord.category} Diagnostic Test
                   </span>
-                  <p className="font-bold text-white text-sm mt-0.5 truncate">{ord.testName}</p>
-                  <p className="text-slate-400 text-xs mt-0.5 truncate">Doctor: <strong className="text-slate-200">{ord.doctorName}</strong></p>
+                  <p className="font-bold text-white text-sm mt-0.5 break-words">
+                    {ord.testName}
+                  </p>
+                  <p className="text-slate-400 text-xs mt-0.5">
+                    Doctor: <strong className="text-slate-200">{ord.doctorName}</strong>
+                  </p>
                 </div>
 
-                <button
-                  type="button"
-                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-purple-600/20 transition-all cursor-pointer shrink-0"
-                >
-                  <span>View Patient Vitals & Results</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                {/* Mobile-Optimized Action Buttons: View Patient Details & Print Results */}
+                <div className="grid grid-cols-2 gap-2 w-full pt-1">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectOrder(ord);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-purple-600/20 transition-all cursor-pointer min-w-0"
+                  >
+                    <span className="truncate">View Patient Details</span>
+                    <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onOpenPrint) {
+                        onOpenPrint(ord);
+                      }
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer min-w-0"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span className="truncate">Print Results</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))
