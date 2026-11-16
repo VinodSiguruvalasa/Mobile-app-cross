@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FlaskConical, CheckCircle2, Plus, Scan } from "lucide-react";
+import { FlaskConical, CheckCircle2, Plus } from "lucide-react";
 import { LabOrder, LabParameterResult, Patient, Vitals } from "../../types/hms";
 import {
   getLabOrders,
@@ -197,6 +197,11 @@ export const LaboratoryPortal: React.FC<LaboratoryPortalProps> = ({
     setActiveView("detail");
   };
 
+  const handlePrintOrder = (ord: LabOrder) => {
+    setSelectedOrder(ord);
+    onOpenPrint();
+  };
+
   const handleCreateNewLabOrder = (e: React.FormEvent) => {
     e.preventDefault();
     const patName = newPatientName.trim() || "John Doe";
@@ -346,45 +351,37 @@ export const LaboratoryPortal: React.FC<LaboratoryPortalProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
             onClick={() => setShowNewOrderModal(true)}
-            className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-purple-600/20 transition-all cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-purple-600/20 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>New Order</span>
           </button>
-
-          <button
-            onClick={onOpenScanner}
-            className="flex-1 sm:flex-initial px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-          >
-            <Scan className="w-4 h-4 text-purple-400" />
-            <span>Scan Specimen</span>
-          </button>
         </div>
       </div>
 
-      {/* KPI Metric Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      {/* KPI Metric Cards (2x2 Grid for Clean Mobile Alignment) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3 w-full">
         {/* Total Orders Card */}
         <button
           onClick={() => {
             setStatusFilter("ALL");
             setActiveView("list");
           }}
-          className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between min-h-[105px] overflow-hidden ${
+          className={`w-full text-left p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between min-h-[92px] shadow-sm overflow-hidden ${
             statusFilter === "ALL" && activeView === "list"
               ? "bg-purple-900/40 border-purple-500 ring-2 ring-purple-500/50"
               : "bg-slate-900 border-slate-800 hover:border-slate-700"
           }`}
         >
           <div className="w-full">
-            <span className="inline-block px-3 py-1 rounded-xl text-xs font-extrabold bg-slate-800 text-slate-300 border border-slate-700 max-w-full">
+            <span className="inline-block px-2.5 py-1 rounded-xl text-xs font-extrabold bg-slate-800 text-slate-300 border border-slate-700 max-w-full truncate">
               Total Orders
             </span>
           </div>
-          <span className="text-2xl sm:text-3xl font-black text-white font-mono mt-3 block">
+          <span className="text-2xl font-black text-white font-mono mt-2 block">
             {totalOrdersCount}
           </span>
         </button>
@@ -395,18 +392,18 @@ export const LaboratoryPortal: React.FC<LaboratoryPortalProps> = ({
             setStatusFilter("Pending");
             setActiveView("list");
           }}
-          className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between min-h-[105px] overflow-hidden ${
+          className={`w-full text-left p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between min-h-[92px] shadow-sm overflow-hidden ${
             statusFilter === "Pending" && activeView === "list"
               ? "bg-purple-900/40 border-purple-500 ring-2 ring-purple-500/50"
               : "bg-slate-900 border-slate-800 hover:border-slate-700"
           }`}
         >
           <div className="w-full">
-            <span className="inline-block px-3 py-1 rounded-xl text-xs font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/30 max-w-full">
+            <span className="inline-block px-2.5 py-1 rounded-xl text-xs font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/30 max-w-full truncate">
               Pending
             </span>
           </div>
-          <span className="text-2xl sm:text-3xl font-black text-purple-400 font-mono mt-3 block">
+          <span className="text-2xl font-black text-purple-400 font-mono mt-2 block">
             {pendingCount}
           </span>
         </button>
@@ -417,7 +414,7 @@ export const LaboratoryPortal: React.FC<LaboratoryPortalProps> = ({
             setStatusFilter("In Progress");
             setActiveView("list");
           }}
-          className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between min-h-[105px] overflow-hidden ${
+          className={`w-full text-left p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between min-h-[92px] shadow-sm overflow-hidden ${
             (statusFilter === "In Progress" || statusFilter === "In Analysis") &&
             activeView === "list"
               ? "bg-amber-900/40 border-amber-500 ring-2 ring-amber-500/50"
@@ -425,11 +422,11 @@ export const LaboratoryPortal: React.FC<LaboratoryPortalProps> = ({
           }`}
         >
           <div className="w-full">
-            <span className="inline-block px-3 py-1 rounded-xl text-xs font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/30 max-w-full">
+            <span className="inline-block px-2.5 py-1 rounded-xl text-xs font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/30 max-w-full truncate">
               In Progress
             </span>
           </div>
-          <span className="text-2xl sm:text-3xl font-black text-amber-400 font-mono mt-3 block">
+          <span className="text-2xl font-black text-amber-400 font-mono mt-2 block">
             {inProgressCount}
           </span>
         </button>
@@ -440,7 +437,7 @@ export const LaboratoryPortal: React.FC<LaboratoryPortalProps> = ({
             setStatusFilter("Completed");
             setActiveView("list");
           }}
-          className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between min-h-[105px] overflow-hidden ${
+          className={`w-full text-left p-3.5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between min-h-[92px] shadow-sm overflow-hidden ${
             (statusFilter === "Completed" || statusFilter === "Verified") &&
             activeView === "list"
               ? "bg-emerald-900/40 border-emerald-500 ring-2 ring-emerald-500/50"
@@ -448,11 +445,11 @@ export const LaboratoryPortal: React.FC<LaboratoryPortalProps> = ({
           }`}
         >
           <div className="w-full">
-            <span className="inline-block px-3 py-1 rounded-xl text-xs font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 max-w-full">
+            <span className="inline-block px-2.5 py-1 rounded-xl text-xs font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 max-w-full truncate">
               Completed
             </span>
           </div>
-          <span className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono mt-3 block">
+          <span className="text-2xl font-black text-emerald-400 font-mono mt-2 block">
             {completedCount}
           </span>
         </button>
@@ -469,6 +466,7 @@ export const LaboratoryPortal: React.FC<LaboratoryPortalProps> = ({
           categoryFilter={categoryFilter}
           setCategoryFilter={setCategoryFilter}
           onSelectOrder={handlePatientClick}
+          onOpenPrint={handlePrintOrder}
         />
       ) : (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 sm:p-5 flex flex-col space-y-4 w-full">

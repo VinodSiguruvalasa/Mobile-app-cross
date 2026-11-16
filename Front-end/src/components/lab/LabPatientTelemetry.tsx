@@ -10,6 +10,7 @@ import {
   Thermometer,
   Droplets,
   Stethoscope,
+  Printer,
 } from "lucide-react";
 import { Patient, LabOrder, Vitals } from "../../types/hms";
 
@@ -61,10 +62,10 @@ export const LabPatientTelemetry: React.FC<LabPatientTelemetryProps> = ({
   return (
     <div className="space-y-4">
       {/* Page Header with Back Button & Print Report */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-800 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pb-3 border-b border-slate-800">
         <button
           onClick={onBackToList}
-          className="w-full sm:w-auto px-4 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+          className="w-full px-4 py-2.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 text-xs font-extrabold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>← Back to Pending Tasks List</span>
@@ -73,9 +74,9 @@ export const LabPatientTelemetry: React.FC<LabPatientTelemetryProps> = ({
         {onOpenPrint && (
           <button
             onClick={onOpenPrint}
-            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
           >
-            <FileText className="w-4 h-4 text-purple-400" />
+            <Printer className="w-4 h-4 text-emerald-400" />
             <span>Print Official Lab Report</span>
           </button>
         )}
