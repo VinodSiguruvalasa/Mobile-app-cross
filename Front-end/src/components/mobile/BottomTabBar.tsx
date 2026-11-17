@@ -83,25 +83,26 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
   const tabs = getTabs();
 
   return (
-    <nav className="bg-slate-900 border-t border-slate-800 px-2 py-1.5 flex items-center justify-around z-30 select-none shadow-lg">
+    <nav className="shrink-0 w-full bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-1 py-1 flex items-center justify-around z-40 select-none shadow-2xl safe-area-bottom">
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;
         return (
           <button
             key={tab.id}
+            type="button"
             onClick={() => onTabChange(tab.id)}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all duration-200 relative ${
+            className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all duration-150 relative cursor-pointer ${
               isActive
-                ? "text-blue-400 font-bold bg-blue-500/10 scale-105"
+                ? "text-blue-400 font-bold bg-blue-500/10"
                 : "text-slate-400 hover:text-slate-200 font-medium"
             }`}
           >
             {isActive && (
-              <span className="absolute -top-1.5 w-6 h-1 bg-blue-500 rounded-full shadow-sm shadow-blue-500/50"></span>
+              <span className="absolute -top-1 w-6 h-0.5 bg-blue-500 rounded-full shadow-sm shadow-blue-500/50"></span>
             )}
-            <Icon className={`w-5 h-5 ${isActive ? "text-blue-400" : ""}`} />
-            <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-[70px]">
+            <Icon className={`w-5 h-5 shrink-0 ${isActive ? "text-blue-400" : ""}`} />
+            <span className="text-[10px] tracking-tight mt-0.5 truncate w-full text-center">
               {tab.label}
             </span>
           </button>

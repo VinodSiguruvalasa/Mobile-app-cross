@@ -43,27 +43,7 @@ export const DoctorPrescriptions: React.FC<DoctorPrescriptionsProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {onNavigateTab && (
-              <div className="hidden lg:flex items-center gap-1 text-[11px] text-slate-400 bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800">
-                <span>Jump to:</span>
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab("doctor_opd")}
-                  className="text-blue-400 hover:underline font-semibold cursor-pointer"
-                >
-                  OPD Queue
-                </button>
-                <span>•</span>
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab("doctor_ipd")}
-                  className="text-purple-400 hover:underline font-semibold cursor-pointer"
-                >
-                  Ward Rounds
-                </button>
-              </div>
-            )}
+          <div className="flex items-center">
             <span className="text-xs font-mono font-bold text-emerald-300 bg-emerald-500/20 px-3 py-1 rounded-xl border border-emerald-500/30 uppercase tracking-wider">
               Total Issued: {prescriptions.length}
             </span>
@@ -132,15 +112,15 @@ export const DoctorPrescriptions: React.FC<DoctorPrescriptionsProps> = ({
                 </div>
 
                 {/* Medication Items */}
-                <div className="space-y-1.5 pl-3 border-l-2 border-emerald-500/40 bg-slate-900/40 p-2.5 rounded-r-xl">
+                <div className="space-y-2 pl-3 border-l-2 border-emerald-500/40 bg-slate-900/40 p-2.5 rounded-r-xl">
                   {rx.items.map((it, i) => (
-                    <div key={i} className="text-slate-300 text-[11px] flex flex-col sm:flex-row justify-between sm:items-center gap-1">
-                      <div className="flex items-center gap-1.5">
+                    <div key={i} className="text-slate-300 text-[11px] flex flex-col sm:flex-row justify-between sm:items-center gap-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <Pill className="w-3 h-3 text-emerald-400 shrink-0" />
-                        <span className="font-medium text-white">{it.drugName}</span>
-                        <span className="text-slate-500">({it.dosage})</span>
+                        <span className="font-semibold text-white">{it.drugName}</span>
+                        <span className="text-slate-400 text-[10px]">({it.dosage})</span>
                       </div>
-                      <span className="text-slate-400 font-mono text-[10px]">
+                      <span className="text-slate-400 font-mono text-[10px] pl-4 sm:pl-0">
                         {it.frequency} • {it.duration}
                       </span>
                     </div>
