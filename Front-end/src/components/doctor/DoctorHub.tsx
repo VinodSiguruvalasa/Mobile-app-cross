@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
   Stethoscope,
   CheckCircle2,
-  Sparkles,
 } from "lucide-react";
 import {
   Appointment,
@@ -146,17 +145,6 @@ export const DoctorHub: React.FC<DoctorHubProps> = ({
               Electronic Health Records, OPD Consultation Room & Inpatient Rounds
             </p>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onOpenAiAssistant}
-            className="px-3.5 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4 text-purple-400" />
-            <span>AI Clinical Assistant</span>
-          </button>
         </div>
       </div>
 

@@ -237,26 +237,23 @@ export const DoctorPatientLogs: React.FC<DoctorPatientLogsProps> = ({
     <div className="space-y-4 w-full">
       {/* Header Banner */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 sm:p-4 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2.5">
+        <div className="flex items-center justify-between gap-2.5 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-bold shrink-0">
               <Users className="w-5 h-5" />
             </div>
-            <div>
-              <h3 className="font-extrabold text-sm sm:text-base text-white flex items-center gap-2 flex-wrap">
+            <div className="min-w-0">
+              <h3 className="font-extrabold text-sm sm:text-base text-white">
                 Doctor Patient Logs & Consultations
-                <span className="text-[10px] font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full font-bold">
-                  {activeDoctor.name}
-                </span>
               </h3>
               <p className="text-[11px] text-slate-400">
-                Patient directory and medical visit history for your clinical practice
+                Patient directory and medical visit history
               </p>
             </div>
           </div>
 
-          <span className="self-start sm:self-auto px-3 py-1 rounded-xl bg-blue-500/20 text-blue-300 font-mono text-xs font-bold border border-blue-500/30 uppercase tracking-wider shrink-0">
-            {doctorPatientRecords.length} Total Patients
+          <span className="px-3 py-1 rounded-xl bg-blue-500/20 text-blue-300 font-mono text-xs font-bold border border-blue-500/30 uppercase tracking-wider shrink-0">
+            {doctorPatientRecords.length} Patients
           </span>
         </div>
 
@@ -595,3 +592,4 @@ export const DoctorPatientLogs: React.FC<DoctorPatientLogsProps> = ({
     </div>
   );
 };
+
