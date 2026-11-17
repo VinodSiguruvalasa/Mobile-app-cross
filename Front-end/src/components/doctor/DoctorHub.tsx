@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
   Stethoscope,
   CheckCircle2,
-  Sparkles,
 } from "lucide-react";
 import {
   Appointment,
@@ -22,6 +21,7 @@ import { DoctorOpdQueue } from "./DoctorOpdQueue";
 import { DoctorConsultation } from "./DoctorConsultation";
 import { DoctorIpdWards } from "./DoctorIpdWards";
 import { DoctorPrescriptions } from "./DoctorPrescriptions";
+import { DoctorPatientLogs } from "./DoctorPatientLogs";
 
 interface DoctorHubProps {
   activeDoctor: UserType;
@@ -99,6 +99,17 @@ export const DoctorHub: React.FC<DoctorHubProps> = ({
     return matchesDoctor && matchesDate;
   });
 
+  // Filter prescriptions specifically for this doctor
+  const doctorPrescriptions = prescriptions.filter((rx) => {
+    if (activeDoctor.role === "admin") return true;
+    if (rx.doctorId && (rx.doctorId === activeDoctor.id || rx.doctorId === "U-101")) return true;
+    const cleanDocName = activeDoctor.name.toLowerCase().replace(/dr\.|\,md|md/gi, "").trim();
+    const parts = cleanDocName.split(/\s+/).filter((p) => p.length >= 3);
+    if (rx.doctorName && parts.some((p) => rx.doctorName.toLowerCase().includes(p))) return true;
+    return false;
+  });
+  const displayPrescriptions = doctorPrescriptions.length > 0 ? doctorPrescriptions : prescriptions;
+
   useEffect(() => {
     if (doctorAppointments.length > 0) {
       setSelectedAppointment(doctorAppointments[0]);
@@ -134,17 +145,6 @@ export const DoctorHub: React.FC<DoctorHubProps> = ({
               Electronic Health Records, OPD Consultation Room & Inpatient Rounds
             </p>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onOpenAiAssistant}
-            className="px-3.5 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-          >
-            <Sparkles className="w-4 h-4 text-purple-400" />
-            <span>AI Clinical Assistant</span>
-          </button>
         </div>
       </div>
 
@@ -190,11 +190,21 @@ export const DoctorHub: React.FC<DoctorHubProps> = ({
         />
       )}
 
-      {(currentTab === "doctor_rx" || currentTab === "patient_history") && (
+      {currentTab === "doctor_rx" && (
         <DoctorPrescriptions
-          prescriptions={prescriptions}
+          prescriptions={displayPrescriptions}
           onOpenPrint={onOpenPrint}
           onNavigateTab={(tab) => setCurrentTab(tab)}
+        />
+      )}
+
+      {currentTab === "patient_history" && (
+        <DoctorPatientLogs
+          activeDoctor={activeDoctor}
+          appointments={appointments}
+          admissions={admissions}
+          prescriptions={prescriptions}
+          onOpenPrint={onOpenPrint}
         />
       )}
     </div>

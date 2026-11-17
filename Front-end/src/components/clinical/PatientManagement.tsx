@@ -223,30 +223,33 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
           {filteredPatients.map((p) => (
             <div
               key={p.id}
-              className="p-3 sm:p-3.5 hover:bg-slate-800/60 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+              className="p-3.5 hover:bg-slate-800/60 transition-all flex flex-col space-y-3 text-xs w-full"
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 font-bold flex items-center justify-center text-sm border border-slate-700 shrink-0">
+              {/* Patient Info Header & Demographics */}
+              <div className="flex items-start gap-3 min-w-0 w-full">
+                <div className="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 font-bold flex items-center justify-center text-sm border border-slate-700 shrink-0 mt-0.5">
                   {p.name.charAt(0)}
                 </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className="font-bold text-sm text-white truncate">{p.name}</span>
-                    <span className="font-mono text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20 font-semibold">
-                      {p.uhid}
-                    </span>
-                    <span
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
-                        p.status === "Inpatient"
-                          ? "bg-purple-500/20 text-purple-300"
-                          : "bg-emerald-500/20 text-emerald-300"
-                      }`}
-                    >
-                      {p.status}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="font-mono text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20 font-semibold">
+                        {p.uhid}
+                      </span>
+                      <span
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                          p.status === "Inpatient"
+                            ? "bg-purple-500/20 text-purple-300"
+                            : "bg-emerald-500/20 text-emerald-300"
+                        }`}
+                      >
+                        {p.status}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="text-[11px] text-slate-400 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                  <div className="text-[11px] text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
                     <span>
                       {p.age} Y • {p.gender} • Blood Group:{" "}
                       <strong className="text-red-400">{p.bloodGroup}</strong>
@@ -256,28 +259,30 @@ export const PatientManagement: React.FC<PatientManagementProps> = ({
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/60 shrink-0">
+              {/* Action Buttons: Book OPD Token Up, Admit to IPD Below */}
+              <div className="flex flex-col space-y-2 w-full pt-1 border-t border-slate-800/60">
                 <button
+                  type="button"
                   onClick={() => {
                     setSelectedPatientForAction(p);
                     setShowBookAptModal(true);
                   }}
-                  className="flex-1 sm:flex-initial px-2.5 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 font-medium text-[11px] flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                  className="w-full py-2 px-3 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-sm"
                 >
-                  <CalendarPlus className="w-3.5 h-3.5" />
+                  <CalendarPlus className="w-4 h-4 text-blue-400 shrink-0" />
                   <span>Book OPD Token</span>
                 </button>
 
                 {p.status !== "Inpatient" && (
                   <button
+                    type="button"
                     onClick={() => {
                       setSelectedPatientForAction(p);
                       setShowAdmitModal(true);
                     }}
-                    className="flex-1 sm:flex-initial px-2.5 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 font-medium text-[11px] flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                    className="w-full py-2 px-3 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-sm"
                   >
-                    <BedDouble className="w-3.5 h-3.5" />
+                    <BedDouble className="w-4 h-4 text-purple-400 shrink-0" />
                     <span>Admit to IPD</span>
                   </button>
                 )}
