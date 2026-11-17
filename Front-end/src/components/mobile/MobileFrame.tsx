@@ -67,7 +67,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#0c0d0f] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+    <div className="h-[100dvh] h-screen max-h-screen overflow-hidden bg-[#0c0d0f] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
       {/* Top Universal Desktop Simulator Header (HIDDEN ON MOBILE SCREENS) */}
       <header className="hidden lg:flex bg-[#111215]/95 backdrop-blur-md border-b border-[#22242a] px-4 py-2 flex-wrap items-center justify-between gap-3 sticky top-0 z-50 text-xs">
         {/* App Title & Badge */}
@@ -206,9 +206,9 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({
       </header>
 
       {/* Main Screen Container - 100% Full Width on Mobile Devices */}
-      <main className="flex-1 flex items-center justify-center overflow-y-auto bg-[#0c0d0f] w-full">
+      <main className="flex-1 flex items-center justify-center overflow-hidden bg-[#0c0d0f] w-full min-h-0">
         {platform === "responsive" ? (
-          <div className="w-full h-full min-h-screen flex flex-col bg-[#0c0d0f]">
+          <div className="w-full h-full flex flex-col bg-[#0c0d0f] overflow-hidden">
             {children}
           </div>
         ) : (
