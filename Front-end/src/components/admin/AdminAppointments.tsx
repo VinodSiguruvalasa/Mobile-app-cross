@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Calendar,
   Plus,
@@ -41,7 +41,44 @@ export const AdminAppointments: React.FC<AdminAppointmentsProps> = ({
   openScheduleModal,
   onCloseScheduleModal,
 }) => {
-  const getTodayStr = () => new Date().toISOString().split("T")[0];
+  const getTodayStr = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const getMaxSchedDateStr = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  // Allowed scheduling window: Today up to +7 days (past dates blocked)
+  const allowedSchedDates = useMemo(() => {
+    const list = [];
+    const now = new Date();
+    for (let i = 0; i <= 7; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const dateStr = `${year}-${month}-${day}`;
+      const weekday =
+        i === 0
+          ? "Today"
+          : i === 1
+          ? "Tomorrow"
+          : d.toLocaleDateString("en-US", { weekday: "short" });
+      const dayNum = d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+      list.push({ dateStr, weekday, dayNum, offset: i });
+    }
+    return list;
+  }, []);
 
   // Filters
   const [aptDateFilter, setAptDateFilter] = useState<string>(getTodayStr());
@@ -107,7 +144,14 @@ export const AdminAppointments: React.FC<AdminAppointmentsProps> = ({
 
   const getSlotAvailability = (slot: string) => {
     const targetDate = schedDate || getTodayStr();
-    const isToday = targetDate === getTodayStr();
+    const today = getTodayStr();
+    const maxDate = getMaxSchedDateStr();
+
+    if (targetDate < today || targetDate > maxDate) {
+      return { isPast: true, isBooked: false, isDisabled: true };
+    }
+
+    const isToday = targetDate === today;
 
     let isPast = false;
     if (isToday) {
@@ -156,7 +200,13 @@ export const AdminAppointments: React.FC<AdminAppointmentsProps> = ({
     setSchedPatientGender("");
     setSchedPatientBloodGroup("");
     setSelectedDoctorId("");
-    setSchedDate(aptDateFilter || getTodayStr());
+    const initialDate =
+      aptDateFilter &&
+      aptDateFilter >= getTodayStr() &&
+      aptDateFilter <= getMaxSchedDateStr()
+        ? aptDateFilter
+        : getTodayStr();
+    setSchedDate(initialDate);
     setTimeSlot("");
     setComplaint("");
     setFee(75);
@@ -191,6 +241,19 @@ export const AdminAppointments: React.FC<AdminAppointmentsProps> = ({
       return;
     }
 
+    const today = getTodayStr();
+    const maxDate = getMaxSchedDateStr();
+    const targetDate = schedDate || today;
+
+    if (targetDate < today) {
+      showToast("Cannot schedule appointments for past dates! Please select today or a date within the next 7 days.");
+      return;
+    }
+    if (targetDate > maxDate) {
+      showToast("Appointments can only be scheduled from today up to the next 7 days.");
+      return;
+    }
+
     const { isPast, isBooked } = getSlotAvailability(timeSlot);
     if (isBooked) {
       showToast("This time slot is already booked for this doctor! Please select another slot.");
@@ -206,7 +269,6 @@ export const AdminAppointments: React.FC<AdminAppointmentsProps> = ({
     const doc = doctorsList.find((d) => d.id === selectedDoctorId);
     const targetDocId = doc ? doc.id : selectedDoctorId;
     const fullPhone = `+91 ${schedPatientPhone}`;
-    const targetDate = schedDate || aptDateFilter;
 
     const apiRes = await appointmentService.createAppointment({
       patientName: schedPatientName.trim(),
@@ -706,29 +768,79 @@ export const AdminAppointments: React.FC<AdminAppointmentsProps> = ({
               </div>
 
               {/* Date and Time Slot Picker */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                <div>
-                  <label className="text-slate-400 block mb-1 font-semibold">Appointment Date *</label>
-                  <input
-                    type="date"
-                    value={schedDate}
-                    onChange={(e) => {
-                      setSchedDate(e.target.value);
-                      setTimeSlot("");
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 [color-scheme:dark]"
-                    required
-                  />
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-400 font-semibold flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Appointment Date (Today to +7 Days) *</span>
+                  </label>
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
+                    Past dates blocked
+                  </span>
                 </div>
 
-                <div>
-                  <label className="text-slate-400 block mb-1 font-semibold">Selected Time Slot *</label>
-                  <input
-                    type="text"
-                    value={timeSlot ? `${timeSlot} (Selected)` : "Pick a slot below"}
-                    readOnly
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-emerald-400 font-mono font-bold focus:outline-none cursor-default"
-                  />
+                {/* Quick Date Selection Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  {allowedSchedDates.map((item) => {
+                    const isSelected = schedDate === item.dateStr;
+                    return (
+                      <button
+                        key={item.dateStr}
+                        type="button"
+                        onClick={() => {
+                          setSchedDate(item.dateStr);
+                          setTimeSlot("");
+                        }}
+                        className={`px-2.5 py-1.5 rounded-xl border text-center transition-all shrink-0 cursor-pointer ${
+                          isSelected
+                            ? "bg-emerald-600 text-white border-emerald-500 font-bold shadow-md shadow-emerald-600/30"
+                            : "bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white"
+                        }`}
+                      >
+                        <span className="block text-[10px] font-bold leading-tight">{item.weekday}</span>
+                        <span className="block text-[9px] font-mono opacity-80">{item.dayNum}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="text-slate-400 block mb-1 text-[11px] font-medium">Or pick date:</label>
+                    <input
+                      type="date"
+                      min={getTodayStr()}
+                      max={getMaxSchedDateStr()}
+                      value={schedDate}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const today = getTodayStr();
+                        const maxD = getMaxSchedDateStr();
+                        if (val < today) {
+                          setSchedDate(today);
+                          showToast("Cannot select past dates! Date reset to today.");
+                        } else if (val > maxD) {
+                          setSchedDate(maxD);
+                          showToast("Appointments can only be scheduled up to 7 days ahead.");
+                        } else {
+                          setSchedDate(val);
+                        }
+                        setTimeSlot("");
+                      }}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 [color-scheme:dark]"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-slate-400 block mb-1 text-[11px] font-medium">Selected Time Slot *</label>
+                    <input
+                      type="text"
+                      value={timeSlot ? `${timeSlot} (Selected)` : "Pick a slot below"}
+                      readOnly
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-emerald-400 font-mono font-bold focus:outline-none cursor-default"
+                    />
+                  </div>
                 </div>
               </div>
 
