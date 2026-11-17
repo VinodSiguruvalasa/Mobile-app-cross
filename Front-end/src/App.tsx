@@ -183,7 +183,7 @@ export default function App() {
             )}
 
             {/* Doctor Hub Views */}
-            {(activeTab.startsWith("doctor_") || activeTab === "patient_history") && activeTab !== "doctor_vitals" && (
+            {(activeTab.startsWith("doctor_") || ((activeUser.role === "doctor" || activeUser.role === "admin") && activeTab === "patient_history")) && activeTab !== "doctor_vitals" && (
               <DoctorHub
                 activeDoctor={activeUser}
                 subTab={activeTab}
@@ -211,7 +211,7 @@ export default function App() {
             )}
 
             {/* Laboratory Portal Views */}
-            {activeTab.startsWith("lab_") && (
+            {(activeTab.startsWith("lab_") || (activeUser.role === "lab_tech" && activeTab === "patient_history")) && (
               <LaboratoryPortal
                 subTab={activeTab}
                 onOpenPrint={() => setIsPrintOpen(true)}

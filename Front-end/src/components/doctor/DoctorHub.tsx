@@ -22,6 +22,7 @@ import { DoctorOpdQueue } from "./DoctorOpdQueue";
 import { DoctorConsultation } from "./DoctorConsultation";
 import { DoctorIpdWards } from "./DoctorIpdWards";
 import { DoctorPrescriptions } from "./DoctorPrescriptions";
+import { DoctorPatientLogs } from "./DoctorPatientLogs";
 
 interface DoctorHubProps {
   activeDoctor: UserType;
@@ -98,6 +99,17 @@ export const DoctorHub: React.FC<DoctorHubProps> = ({
 
     return matchesDoctor && matchesDate;
   });
+
+  // Filter prescriptions specifically for this doctor
+  const doctorPrescriptions = prescriptions.filter((rx) => {
+    if (activeDoctor.role === "admin") return true;
+    if (rx.doctorId && (rx.doctorId === activeDoctor.id || rx.doctorId === "U-101")) return true;
+    const cleanDocName = activeDoctor.name.toLowerCase().replace(/dr\.|\,md|md/gi, "").trim();
+    const parts = cleanDocName.split(/\s+/).filter((p) => p.length >= 3);
+    if (rx.doctorName && parts.some((p) => rx.doctorName.toLowerCase().includes(p))) return true;
+    return false;
+  });
+  const displayPrescriptions = doctorPrescriptions.length > 0 ? doctorPrescriptions : prescriptions;
 
   useEffect(() => {
     if (doctorAppointments.length > 0) {
@@ -190,11 +202,21 @@ export const DoctorHub: React.FC<DoctorHubProps> = ({
         />
       )}
 
-      {(currentTab === "doctor_rx" || currentTab === "patient_history") && (
+      {currentTab === "doctor_rx" && (
         <DoctorPrescriptions
-          prescriptions={prescriptions}
+          prescriptions={displayPrescriptions}
           onOpenPrint={onOpenPrint}
           onNavigateTab={(tab) => setCurrentTab(tab)}
+        />
+      )}
+
+      {currentTab === "patient_history" && (
+        <DoctorPatientLogs
+          activeDoctor={activeDoctor}
+          appointments={appointments}
+          admissions={admissions}
+          prescriptions={prescriptions}
+          onOpenPrint={onOpenPrint}
         />
       )}
     </div>
