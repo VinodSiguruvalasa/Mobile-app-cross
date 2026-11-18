@@ -9,6 +9,7 @@ import {
   PatientDiet,
   OfflineAction,
   SavedPrescriptionTemplate,
+  DoctorLeave,
 } from "../types/hms";
 import {
   INITIAL_PATIENTS,
@@ -241,4 +242,29 @@ export function addSystemNotification(notif: {
 
 export function clearAllNotifications() {
   setStored(NOTIFICATIONS_KEY, []);
+}
+
+// Doctor Leaves
+const LEAVES_KEY = "hms_doctor_leaves_v1";
+
+export function getStoredDoctorLeaves(): DoctorLeave[] {
+  return getStored<DoctorLeave[]>(LEAVES_KEY, []);
+}
+
+export function saveStoredDoctorLeaves(leaves: DoctorLeave[]) {
+  setStored(LEAVES_KEY, leaves);
+}
+
+export function addStoredDoctorLeave(leave: DoctorLeave) {
+  const list = getStoredDoctorLeaves();
+  const exists = list.some((l) => l.doctorId === leave.doctorId && l.date === leave.date);
+  if (!exists) {
+    list.push(leave);
+    saveStoredDoctorLeaves(list);
+  }
+}
+
+export function removeStoredDoctorLeave(id: string) {
+  const list = getStoredDoctorLeaves().filter((l) => l.id !== id);
+  saveStoredDoctorLeaves(list);
 }

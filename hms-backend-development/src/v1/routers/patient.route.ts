@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { PatientController } from "../controllers/patient.controller";
+import { DoctorController } from "../controllers/doctor.controller";
 import { PatientValidator } from "../validators/patient.validators";
 import { authorize } from "../middlewares/permission.middleware";
 import { PatientBillingController } from "../controllers/patientbilling.controller";
@@ -12,6 +13,9 @@ PatientRouter.post("/admitPatient", PatientValidator.AdmitPatientValidator, Pati
 PatientRouter.get("/getDoctorSlots", PatientController.getDoctorAvailableAndUnavailableSlots);
 PatientRouter.get("/getDoctorAvailableDates", PatientController.getDoctorAvailableDates);
 PatientRouter.post("/blockUnblockDoctorTimeSlot", PatientController.blockUnblockDoctorTimeSlot);
+PatientRouter.get("/getDoctorLeaves", DoctorController.getAllLeaves);
+PatientRouter.post("/applyDoctorLeave", DoctorController.applyDoctorLeave);
+PatientRouter.delete("/cancelDoctorLeave/:id", DoctorController.cancelDoctorLeave);
 PatientRouter.get("/getAllAppointments", PatientController.getAllAppointments);
 PatientRouter.get("/getAllAdmissions", PatientController.getAllAdmissions);
 PatientRouter.post("/updateAppointmentStatus", PatientController.updateAppointmentStatus);

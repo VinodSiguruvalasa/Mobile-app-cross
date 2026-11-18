@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Calendar,
   Plus,
@@ -14,10 +14,12 @@ import {
   ChevronRight,
   Sparkles,
   ChevronDown,
+  CalendarOff,
 } from "lucide-react";
-import { Appointment } from "../../types/hms";
+import { Appointment, DoctorLeave } from "../../types/hms";
 import { saveAppointments, addAppointment, addSystemNotification } from "../../lib/storage";
 import { appointmentService } from "../../services/appointmentService";
+import { doctorService } from "../../services/doctorService";
 import { apiRequest } from "../../lib/apiClient";
 
 interface AdminAppointmentsProps {
@@ -41,7 +43,44 @@ export const AdminAppointments: React.FC<AdminAppointmentsProps> = ({
   openScheduleModal,
   onCloseScheduleModal,
 }) => {
-  const getTodayStr = () => new Date().toISOString().split("T")[0];
+  const getTodayStr = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const getMaxSchedDateStr = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  // Allowed scheduling window: Today up to +7 days (past dates blocked)
+  const allowedSchedDates = useMemo(() => {
+    const list = [];
+    const now = new Date();
+    for (let i = 0; i <= 7; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const dateStr = `${year}-${month}-${day}`;
+      const weekday =
+        i === 0
+          ? "Today"
+          : i === 1
+          ? "Tomorrow"
+          : d.toLocaleDateString("en-US", { weekday: "short" });
+      const dayNum = d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+      list.push({ dateStr, weekday, dayNum, offset: i });
+    }
+    return list;
+  }, []);
 
   // Filters
   const [aptDateFilter, setAptDateFilter] = useState<string>(getTodayStr());
@@ -85,6 +124,28 @@ export const AdminAppointments: React.FC<AdminAppointmentsProps> = ({
   const [complaint, setComplaint] = useState<string>("");
   const [fee, setFee] = useState<number>(75);
   const [schedStatus, setSchedStatus] = useState<Appointment["status"]>("Scheduled");
+  const [doctorLeaves, setDoctorLeaves] = useState<DoctorLeave[]>([]);
+
+  React.useEffect(() => {
+    doctorService.getDoctorLeaves().then((res) => {
+      if (res.success && res.data) {
+        setDoctorLeaves(res.data);
+      }
+    });
+  }, [showScheduleModal]);
+
+  const isDoctorOnLeave = (docId: string, dateStr: string): boolean => {
+    if (!docId || !dateStr || !doctorLeaves.length) return false;
+    const selDoc = doctorsList.find((d) => d.id === docId);
+    const docNameClean = (selDoc?.name || "").toLowerCase().replace(/dr\.|\,md|md/gi, "").trim();
+    const nameTokens = docNameClean.split(/\s+/).filter((p) => p.length >= 3);
+    return doctorLeaves.some((lv) => {
+      const matchesDate = lv.date === dateStr;
+      const matchesId = lv.doctorId === docId || lv.userId === docId;
+      const matchesName = lv.doctorName && nameTokens.some((p) => lv.doctorName.toLowerCase().includes(p));
+      return matchesDate && (matchesId || matchesName);
+    });
+  };
 
   const ALL_TIME_SLOTS = [
     "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
@@ -107,7 +168,19 @@ export const AdminAppointments: React.FC<AdminAppointmentsProps> = ({
 
   const getSlotAvailability = (slot: string) => {
     const targetDate = schedDate || getTodayStr();
-    const isToday = targetDate === getTodayStr();
+    const today = getTodayStr();
+    const maxDate = getMaxSchedDateStr();
+
+    if (targetDate < today || targetDate > maxDate) {
+      return { isPast: true, isBooked: false, isDisabled: true };
+    }
+
+    // Check if the selected doctor is on approved leave on targetDate
+    if (selectedDoctorId && isDoctorOnLeave(selectedDoctorId, targetDate)) {
+      return { isPast: true, isBooked: false, isDisabled: true };
+    }
+
+    const isToday = targetDate === today;
 
     let isPast = false;
     if (isToday) {
@@ -156,7 +229,13 @@ export const AdminAppointments: React.FC<AdminAppointmentsProps> = ({
     setSchedPatientGender("");
     setSchedPatientBloodGroup("");
     setSelectedDoctorId("");
-    setSchedDate(aptDateFilter || getTodayStr());
+    const initialDate =
+      aptDateFilter &&
+      aptDateFilter >= getTodayStr() &&
+      aptDateFilter <= getMaxSchedDateStr()
+        ? aptDateFilter
+        : getTodayStr();
+    setSchedDate(initialDate);
     setTimeSlot("");
     setComplaint("");
     setFee(75);
@@ -191,6 +270,25 @@ export const AdminAppointments: React.FC<AdminAppointmentsProps> = ({
       return;
     }
 
+    const today = getTodayStr();
+    const maxDate = getMaxSchedDateStr();
+    const targetDate = schedDate || today;
+
+    if (targetDate < today) {
+      showToast("Cannot schedule appointments for past dates! Please select today or a date within the next 7 days.");
+      return;
+    }
+    if (targetDate > maxDate) {
+      showToast("Appointments can only be scheduled from today up to the next 7 days.");
+      return;
+    }
+
+    if (selectedDoctorId && isDoctorOnLeave(selectedDoctorId, targetDate)) {
+      const selDoc = doctorsList.find((d) => d.id === selectedDoctorId);
+      showToast(`⚠️ Dr. ${selDoc?.name || "The selected doctor"} is on approved leave on ${targetDate}! Please choose another date or doctor.`);
+      return;
+    }
+
     const { isPast, isBooked } = getSlotAvailability(timeSlot);
     if (isBooked) {
       showToast("This time slot is already booked for this doctor! Please select another slot.");
@@ -206,7 +304,6 @@ export const AdminAppointments: React.FC<AdminAppointmentsProps> = ({
     const doc = doctorsList.find((d) => d.id === selectedDoctorId);
     const targetDocId = doc ? doc.id : selectedDoctorId;
     const fullPhone = `+91 ${schedPatientPhone}`;
-    const targetDate = schedDate || aptDateFilter;
 
     const apiRes = await appointmentService.createAppointment({
       patientName: schedPatientName.trim(),
@@ -689,8 +786,13 @@ export const AdminAppointments: React.FC<AdminAppointmentsProps> = ({
                   <select
                     value={selectedDoctorId}
                     onChange={(e) => {
-                      setSelectedDoctorId(e.target.value);
+                      const newDocId = e.target.value;
+                      setSelectedDoctorId(newDocId);
                       setTimeSlot("");
+                      if (newDocId && schedDate && isDoctorOnLeave(newDocId, schedDate)) {
+                        const selDoc = doctorsList.find((d) => d.id === newDocId);
+                        showToast(`⚠️ Note: Dr. ${selDoc?.name || "Doctor"} is on approved leave on ${schedDate}!`);
+                      }
                     }}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:outline-none focus:border-emerald-500"
                     required
@@ -706,31 +808,107 @@ export const AdminAppointments: React.FC<AdminAppointmentsProps> = ({
               </div>
 
               {/* Date and Time Slot Picker */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                <div>
-                  <label className="text-slate-400 block mb-1 font-semibold">Appointment Date *</label>
-                  <input
-                    type="date"
-                    value={schedDate}
-                    onChange={(e) => {
-                      setSchedDate(e.target.value);
-                      setTimeSlot("");
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 [color-scheme:dark]"
-                    required
-                  />
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-400 font-semibold flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Appointment Date (Today to +7 Days) *</span>
+                  </label>
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
+                    Past dates blocked
+                  </span>
                 </div>
 
-                <div>
-                  <label className="text-slate-400 block mb-1 font-semibold">Selected Time Slot *</label>
-                  <input
-                    type="text"
-                    value={timeSlot ? `${timeSlot} (Selected)` : "Pick a slot below"}
-                    readOnly
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-emerald-400 font-mono font-bold focus:outline-none cursor-default"
-                  />
+                {/* Quick Date Selection Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  {allowedSchedDates.map((item) => {
+                    const isSelected = schedDate === item.dateStr;
+                    const onLeave = selectedDoctorId ? isDoctorOnLeave(selectedDoctorId, item.dateStr) : false;
+                    return (
+                      <button
+                        key={item.dateStr}
+                        type="button"
+                        onClick={() => {
+                          if (onLeave) {
+                            showToast("⚠️ Selected doctor is on approved leave on this date! Please choose another date or doctor.");
+                            return;
+                          }
+                          setSchedDate(item.dateStr);
+                          setTimeSlot("");
+                        }}
+                        className={`px-2.5 py-1.5 rounded-xl border text-center transition-all shrink-0 cursor-pointer ${
+                          onLeave
+                            ? "bg-amber-500/10 border-amber-500/40 text-amber-400 opacity-70 cursor-not-allowed hover:bg-amber-500/15"
+                            : isSelected
+                            ? "bg-emerald-600 text-white border-emerald-500 font-bold shadow-md shadow-emerald-600/30"
+                            : "bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white"
+                        }`}
+                        title={onLeave ? "Doctor is on leave on this date" : item.weekday}
+                      >
+                        <span className="block text-[10px] font-bold leading-tight">{item.weekday}</span>
+                        <span className="block text-[9px] font-mono opacity-80">{item.dayNum}</span>
+                        {onLeave && (
+                          <span className="mt-0.5 block text-[8px] font-mono font-bold text-amber-400 uppercase tracking-tight">
+                            On Leave
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="text-slate-400 block mb-1 text-[11px] font-medium">Or pick date:</label>
+                    <input
+                      type="date"
+                      min={getTodayStr()}
+                      max={getMaxSchedDateStr()}
+                      value={schedDate}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const today = getTodayStr();
+                        const maxD = getMaxSchedDateStr();
+                        if (val < today) {
+                          setSchedDate(today);
+                          showToast("Cannot select past dates! Date reset to today.");
+                        } else if (val > maxD) {
+                          setSchedDate(maxD);
+                          showToast("Appointments can only be scheduled up to 7 days ahead.");
+                        } else {
+                          setSchedDate(val);
+                          if (selectedDoctorId && isDoctorOnLeave(selectedDoctorId, val)) {
+                            showToast("⚠️ Note: Selected doctor is on approved leave on this date!");
+                          }
+                        }
+                        setTimeSlot("");
+                      }}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 [color-scheme:dark]"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-slate-400 block mb-1 text-[11px] font-medium">Selected Time Slot *</label>
+                    <input
+                      type="text"
+                      value={timeSlot ? `${timeSlot} (Selected)` : "Pick a slot below"}
+                      readOnly
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-emerald-400 font-mono font-bold focus:outline-none cursor-default"
+                    />
+                  </div>
                 </div>
               </div>
+
+              {/* Doctor On Leave Warning Banner */}
+              {selectedDoctorId && isDoctorOnLeave(selectedDoctorId, schedDate) && (
+                <div className="p-2.5 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center gap-2 text-amber-300 text-xs">
+                  <CalendarOff className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="font-semibold text-[11px]">
+                    Dr. {doctorsList.find((d) => d.id === selectedDoctorId)?.name || "Doctor"} is on approved leave on this date ({schedDate}). All appointment slots are disabled.
+                  </span>
+                </div>
+              )}
 
               {/* Time Slots Selector */}
               <div className="space-y-1.5 pt-1">

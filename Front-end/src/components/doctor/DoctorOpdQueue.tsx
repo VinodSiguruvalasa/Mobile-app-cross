@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Calendar,
   Clock,
@@ -7,11 +7,14 @@ import {
   ChevronRight,
   X,
   Sparkles,
+  CalendarOff,
 } from "lucide-react";
-import { Appointment } from "../../types/hms";
+import { Appointment, DoctorLeave } from "../../types/hms";
+import { doctorService } from "../../services/doctorService";
 
 interface DoctorOpdQueueProps {
   doctorName: string;
+  doctorId?: string;
   selectedDate: string;
   setSelectedDate: (date: string) => void;
   doctorAppointments: Appointment[];
@@ -22,6 +25,7 @@ interface DoctorOpdQueueProps {
 
 export const DoctorOpdQueue: React.FC<DoctorOpdQueueProps> = ({
   doctorName,
+  doctorId,
   selectedDate,
   setSelectedDate,
   doctorAppointments,
@@ -30,6 +34,27 @@ export const DoctorOpdQueue: React.FC<DoctorOpdQueueProps> = ({
   onNavigateTab,
 }) => {
   const [showCalendarModal, setShowCalendarModal] = useState<boolean>(false);
+  const [doctorLeaves, setDoctorLeaves] = useState<DoctorLeave[]>([]);
+
+  useEffect(() => {
+    doctorService.getDoctorLeaves().then((res) => {
+      if (res.success && res.data) {
+        setDoctorLeaves(res.data);
+      }
+    });
+  }, [selectedDate]);
+
+  const isCurrentDateOnLeave = useMemo(() => {
+    if (!selectedDate || !doctorLeaves.length) return false;
+    const cleanDocName = doctorName.toLowerCase().replace(/dr\.|\,md|md/gi, "").trim();
+    const parts = cleanDocName.split(/\s+/).filter((p) => p.length >= 3);
+    return doctorLeaves.some((lv) => {
+      const matchDate = lv.date === selectedDate;
+      const matchId = doctorId && (lv.doctorId === doctorId || lv.userId === doctorId);
+      const matchName = lv.doctorName && parts.some((p) => lv.doctorName.toLowerCase().includes(p));
+      return matchDate && (matchId || matchName);
+    });
+  }, [selectedDate, doctorLeaves, doctorName, doctorId]);
 
   const getMinDateStr = () => {
     const d = new Date();
@@ -128,6 +153,26 @@ export const DoctorOpdQueue: React.FC<DoctorOpdQueueProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Doctor On Approved Leave Alert Banner */}
+      {isCurrentDateOnLeave && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center justify-between gap-3 text-amber-300">
+          <div className="flex items-center gap-2.5">
+            <CalendarOff className="w-5 h-5 text-amber-400 shrink-0" />
+            <div>
+              <p className="font-bold text-xs text-amber-200">
+                You are on Approved Leave on this date ({selectedDate})
+              </p>
+              <p className="text-[11px] text-amber-400/80">
+                Hospital appointment booking calendar is blocked for your schedule on this date.
+              </p>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 font-mono text-[10px] font-bold uppercase border border-amber-500/30 shrink-0">
+            On Leave
+          </span>
+        </div>
+      )}
 
       {/* OPD Token Queue Horizontal Carousel / List */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">

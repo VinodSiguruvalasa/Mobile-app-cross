@@ -19,6 +19,9 @@ DoctorRouter.post("/addDiet", DoctorValidator.addDiet, DoctorController.addDiet)
 DoctorRouter.get("/searchMedicines", DoctorController.searchMedicines);
 DoctorRouter.get("/getDoctorSlots", DoctorController.getDoctorAvailableAndUnavailableSlots);
 DoctorRouter.post("/blockUnblockDoctorTimeSlot", DoctorController.blockUnblockDoctorTimeSlot);
+DoctorRouter.get("/getAllLeaves", DoctorController.getAllLeaves);
+DoctorRouter.post("/applyLeave", DoctorController.applyDoctorLeave);
+DoctorRouter.delete("/cancelLeave/:id", DoctorController.cancelDoctorLeave);
 DoctorRouter.post("/addPrescription", DoctorValidator.addPrescription, DoctorController.addPrescription);
 DoctorRouter.post("/createLabOrder", DoctorValidator.addLabOrder, DoctorController.createLabOrder);
 DoctorRouter.get("/searchPhysioTherapies", DoctorController.searchPhysioTherapies);

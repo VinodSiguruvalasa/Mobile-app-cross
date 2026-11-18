@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   Stethoscope,
   CheckCircle2,
+  CalendarOff,
 } from "lucide-react";
 import {
   Appointment,
@@ -22,6 +23,8 @@ import { DoctorConsultation } from "./DoctorConsultation";
 import { DoctorIpdWards } from "./DoctorIpdWards";
 import { DoctorPrescriptions } from "./DoctorPrescriptions";
 import { DoctorPatientLogs } from "./DoctorPatientLogs";
+import { DoctorLeaveModal } from "./DoctorLeaveModal";
+import { doctorService } from "../../services/doctorService";
 
 interface DoctorHubProps {
   activeDoctor: UserType;
@@ -46,6 +49,8 @@ export const DoctorHub: React.FC<DoctorHubProps> = ({
   const [dbLabConfigs, setDbLabConfigs] = useState<LabTestConfig[]>([]);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState<boolean>(false);
+  const [doctorLeavesCount, setDoctorLeavesCount] = useState<number>(0);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -72,6 +77,19 @@ export const DoctorHub: React.FC<DoctorHubProps> = ({
     labService.getLabConfigurations().then((res) => {
       if (res.success && res.data) {
         setDbLabConfigs(res.data);
+      }
+    });
+    doctorService.getDoctorLeaves(activeDoctor.id).then((res) => {
+      if (res.success && res.data) {
+        const cleanCurrent = activeDoctor.name.toLowerCase().replace(/dr\.|\,md|md/gi, "").trim();
+        const parts = cleanCurrent.split(/\s+/).filter((p) => p.length >= 3);
+        const myLeaves = res.data.filter(
+          (lv) =>
+            lv.doctorId === activeDoctor.id ||
+            lv.userId === activeDoctor.id ||
+            (lv.doctorName && parts.some((p) => lv.doctorName.toLowerCase().includes(p)))
+        );
+        setDoctorLeavesCount(myLeaves.length);
       }
     });
     setPrescriptions(getPrescriptions());
@@ -146,6 +164,23 @@ export const DoctorHub: React.FC<DoctorHubProps> = ({
             </p>
           </div>
         </div>
+
+        {/* Apply Leave Action Button */}
+        <div className="flex items-center gap-2 self-start sm:self-center">
+          <button
+            type="button"
+            onClick={() => setIsLeaveModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm shadow-amber-500/10"
+          >
+            <CalendarOff className="w-4 h-4 text-amber-400" />
+            <span>Apply Leave</span>
+            {doctorLeavesCount > 0 && (
+              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 font-mono text-[10px] font-black">
+                {doctorLeavesCount}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Render Selected Sub-Component */}
@@ -153,6 +188,7 @@ export const DoctorHub: React.FC<DoctorHubProps> = ({
         <div className="flex flex-col space-y-4 w-full">
           <DoctorOpdQueue
             doctorName={activeDoctor.name}
+            doctorId={activeDoctor.id}
             selectedDate={selectedDate}
             setSelectedDate={setSelectedDate}
             doctorAppointments={doctorAppointments}
@@ -207,6 +243,14 @@ export const DoctorHub: React.FC<DoctorHubProps> = ({
           onOpenPrint={onOpenPrint}
         />
       )}
+
+      {/* Doctor Leave Management Modal */}
+      <DoctorLeaveModal
+        activeDoctor={activeDoctor}
+        isOpen={isLeaveModalOpen}
+        onClose={() => setIsLeaveModalOpen(false)}
+        onLeaveUpdated={loadDoctorData}
+      />
     </div>
   );
 };
