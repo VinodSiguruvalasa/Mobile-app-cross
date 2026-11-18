@@ -278,3 +278,18 @@ export interface MobileDeviceConfig {
   batteryLevel: number;
   wifiSignal: "High" | "Medium" | "Low";
 }
+
+export interface DoctorLeave {
+  id: string;
+  userId?: string;
+  doctorId: string;
+  doctorName: string;
+  doctorEmail?: string;
+  date: string; // YYYY-MM-DD
+  startTime?: string;
+  endTime?: string;
+  isAllDay: boolean;
+  reason: string;
+  leaveType: string;
+  createdAt?: string;
+}

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { CommonController } from "../controllers/common.controller";
+import { DoctorController } from "../controllers/doctor.controller";
 
 const CommonRouter = Router();
 
@@ -19,5 +20,8 @@ CommonRouter.get("/getAppointmentById/:id", CommonController.getAppointmentById)
 CommonRouter.get("/getAuditLog", CommonController.getAuditLog);
 CommonRouter.get("/getReferralCounts", CommonController.getReferralCounts);
 CommonRouter.get("/getReferredPatients/:id", CommonController.getReferredPatients);
+CommonRouter.get("/getDoctorLeaves", DoctorController.getAllLeaves);
+CommonRouter.post("/applyDoctorLeave", DoctorController.applyDoctorLeave);
+CommonRouter.delete("/cancelDoctorLeave/:id", DoctorController.cancelDoctorLeave);
 
 export { CommonRouter };

@@ -1693,6 +1693,217 @@ export const DoctorController: DoctorControllerType = {
             });
         }
     },
+    async getAllLeaves(req: any, res: any) {
+        try {
+            const { doctorId } = req.query;
+            let whereClause: any = {
+                isAllDay: true,
+            };
+            if (doctorId) {
+                let uId = String(doctorId);
+                const user = await prisma.user.findFirst({ where: { id: uId } });
+                if (!user) {
+                    const emp = await prisma.employeeInfo.findFirst({
+                        where: { OR: [{ id: uId }, { userId: uId }] },
+                        include: { user: true }
+                    });
+                    if (emp?.user) uId = emp.user.id;
+                }
+                whereClause.userId = uId;
+            }
+
+            const leaves = await prisma.unavailability.findMany({
+                where: whereClause,
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            fName: true,
+                            lName: true,
+                            email: true,
+                            employeeInfoId: true,
+                        }
+                    }
+                },
+                orderBy: { startTime: "asc" }
+            });
+
+            const formatted = leaves.map((lv) => {
+                const startD = new Date(lv.startTime);
+                const year = startD.getFullYear();
+                const month = String(startD.getMonth() + 1).padStart(2, "0");
+                const day = String(startD.getDate()).padStart(2, "0");
+                const dateStr = `${year}-${month}-${day}`;
+
+                let meta: any = {};
+                try {
+                    if (lv.timeZone && lv.timeZone.startsWith("{")) {
+                        meta = JSON.parse(lv.timeZone);
+                    }
+                } catch (e) {}
+
+                const docName = meta.doctorName || (lv.user ? `Dr. ${[lv.user.fName, lv.user.lName].filter(Boolean).join(" ")}` : "Doctor");
+                const finalReason = meta.reason || lv.timeZone || "Scheduled Leave";
+                const finalLeaveType = meta.leaveType || lv.recurrenceRule || "Casual Leave";
+                const finalDocId = meta.doctorId || lv.user?.employeeInfoId || lv.userId;
+
+                return {
+                    id: lv.id,
+                    userId: lv.userId,
+                    doctorId: finalDocId,
+                    doctorName: docName,
+                    doctorEmail: lv.user?.email || "",
+                    date: dateStr,
+                    startTime: lv.startTime,
+                    endTime: lv.endTime,
+                    isAllDay: lv.isAllDay,
+                    reason: finalReason,
+                    leaveType: finalLeaveType,
+                    createdAt: lv.createdAt,
+                };
+            });
+
+            return apiSuccess(res, {
+                data: formatted,
+                message: "Doctor leaves fetched successfully",
+            });
+        } catch (error) {
+            console.error("Error fetching doctor leaves:", error);
+            return apiError(res, {
+                statusCode: "INTERNAL_SERVER_ERROR",
+                message: "Unable to fetch doctor leaves",
+            });
+        }
+    },
+    async applyDoctorLeave(req: any, res: any) {
+        try {
+            const { doctorId, doctorName, startDate, endDate, reason, leaveType } = req.body;
+
+            let validUser: any = null;
+            const candidateId = req.user?.id || doctorId;
+            if (candidateId) {
+                validUser = await prisma.user.findFirst({ where: { id: candidateId } });
+                if (!validUser) {
+                    const emp = await prisma.employeeInfo.findFirst({
+                        where: { OR: [{ id: candidateId }, { userId: candidateId }] },
+                        include: { user: true }
+                    });
+                    if (emp?.user) validUser = emp.user;
+                }
+            }
+
+            if (!validUser && doctorName) {
+                const cleanName = doctorName.replace(/dr\.|\,md|md/gi, "").trim();
+                const parts = cleanName.split(/\s+/).filter((p: string) => p.length >= 3);
+                if (parts.length > 0) {
+                    validUser = await prisma.user.findFirst({
+                        where: {
+                            isDoctor: true,
+                            OR: parts.map((p: string) => ({ fName: { contains: p, mode: "insensitive" } }))
+                        }
+                    });
+                }
+            }
+
+            if (!validUser) {
+                validUser = await prisma.user.findFirst({ where: { isDoctor: true } });
+            }
+
+            if (!validUser) {
+                return apiError(res, {
+                    statusCode: "BAD_REQUEST",
+                    message: "Doctor user not found to apply leave",
+                });
+            }
+
+            const targetUserId = validUser.id;
+
+            const start = new Date(startDate || new Date().toISOString().split("T")[0]);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(endDate || startDate || start);
+            end.setHours(23, 59, 59, 999);
+
+            const createdLeaves: any[] = [];
+            const cur = new Date(start);
+            while (cur <= end) {
+                const dayStart = new Date(cur);
+                dayStart.setHours(0, 0, 0, 0);
+                const dayEnd = new Date(cur);
+                dayEnd.setHours(23, 59, 59, 999);
+
+                // Check if already on leave on this day
+                const existing = await prisma.unavailability.findFirst({
+                    where: {
+                        userId: targetUserId,
+                        isAllDay: true,
+                        startTime: {
+                            gte: dayStart,
+                            lte: dayEnd,
+                        }
+                    }
+                });
+
+                if (!existing) {
+                    const metaPayload = JSON.stringify({
+                        doctorName: doctorName || "Doctor",
+                        reason: reason || "Scheduled Leave",
+                        leaveType: leaveType || "Casual Leave",
+                        doctorId: doctorId || targetUserId,
+                    });
+                    const record = await prisma.unavailability.create({
+                        data: {
+                            userId: targetUserId,
+                            startTime: dayStart,
+                            endTime: dayEnd,
+                            isAllDay: true,
+                            timeZone: metaPayload,
+                            recurrenceRule: leaveType || "Casual Leave",
+                            exceptionDates: [dayStart],
+                        }
+                    });
+                    createdLeaves.push(record);
+                } else {
+                    createdLeaves.push(existing);
+                }
+                cur.setDate(cur.getDate() + 1);
+            }
+
+            return apiSuccess(res, {
+                data: createdLeaves,
+                message: `Doctor leave applied successfully for ${createdLeaves.length} day(s)`,
+            });
+        } catch (error) {
+            console.error("Error applying doctor leave:", error);
+            return apiError(res, {
+                statusCode: "INTERNAL_SERVER_ERROR",
+                message: "Unable to apply doctor leave",
+            });
+        }
+    },
+    async cancelDoctorLeave(req: any, res: any) {
+        try {
+            const { id } = req.params;
+            if (!id) {
+                return apiError(res, {
+                    statusCode: "BAD_REQUEST",
+                    message: "Leave ID is required",
+                });
+            }
+            await prisma.unavailability.delete({
+                where: { id: String(id) }
+            });
+            return apiSuccess(res, {
+                data: null,
+                message: "Doctor leave cancelled successfully",
+            });
+        } catch (error) {
+            console.error("Error cancelling doctor leave:", error);
+            return apiError(res, {
+                statusCode: "INTERNAL_SERVER_ERROR",
+                message: "Unable to cancel doctor leave",
+            });
+        }
+    },
     async addVisit(req, res) {
         try {
             const user = await prisma.user.findUnique({
