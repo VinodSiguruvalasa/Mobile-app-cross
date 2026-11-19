@@ -1695,25 +1695,12 @@ export const DoctorController: DoctorControllerType = {
     },
     async getAllLeaves(req: any, res: any) {
         try {
-            const { doctorId } = req.query;
-            let whereClause: any = {
-                isAllDay: true,
-            };
-            if (doctorId) {
-                let uId = String(doctorId);
-                const user = await prisma.user.findFirst({ where: { id: uId } });
-                if (!user) {
-                    const emp = await prisma.employeeInfo.findFirst({
-                        where: { OR: [{ id: uId }, { userId: uId }] },
-                        include: { user: true }
-                    });
-                    if (emp?.user) uId = emp.user.id;
-                }
-                whereClause.userId = uId;
-            }
+            const { doctorId, doctorName } = req.query;
 
             const leaves = await prisma.unavailability.findMany({
-                where: whereClause,
+                where: {
+                    isAllDay: true,
+                },
                 include: {
                     user: {
                         select: {
@@ -1728,7 +1715,7 @@ export const DoctorController: DoctorControllerType = {
                 orderBy: { startTime: "asc" }
             });
 
-            const formatted = leaves.map((lv) => {
+            let formatted = leaves.map((lv) => {
                 const startD = new Date(lv.startTime);
                 const year = startD.getFullYear();
                 const month = String(startD.getMonth() + 1).padStart(2, "0");
@@ -1762,6 +1749,25 @@ export const DoctorController: DoctorControllerType = {
                     createdAt: lv.createdAt,
                 };
             });
+
+            if (doctorId || doctorName) {
+                const docIdStr = doctorId ? String(doctorId).toLowerCase() : "";
+                const cleanName = doctorName ? String(doctorName).toLowerCase().replace(/dr\.|\,md|md/gi, "").trim() : "";
+                const nameTokens = cleanName ? cleanName.split(/\s+/).filter((p: string) => p.length >= 3) : [];
+
+                formatted = formatted.filter((item) => {
+                    if (docIdStr && (item.doctorId?.toLowerCase() === docIdStr || item.userId?.toLowerCase() === docIdStr)) {
+                        return true;
+                    }
+                    if (nameTokens.length > 0 && item.doctorName) {
+                        const target = item.doctorName.toLowerCase();
+                        if (nameTokens.some((p: string) => target.includes(p))) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+            }
 
             return apiSuccess(res, {
                 data: formatted,
@@ -1822,6 +1828,48 @@ export const DoctorController: DoctorControllerType = {
             start.setHours(0, 0, 0, 0);
             const end = new Date(endDate || startDate || start);
             end.setHours(23, 59, 59, 999);
+
+            // Pre-check for duplicate leave conflicts
+            const cleanTargetName = (doctorName || "").toLowerCase().replace(/dr\.|\,md|md/gi, "").trim();
+            const targetParts = cleanTargetName.split(/\s+/).filter((p: string) => p.length >= 3);
+
+            const allUnavail = await prisma.unavailability.findMany({
+                where: {
+                    isAllDay: true,
+                    startTime: {
+                        gte: start,
+                        lte: end,
+                    }
+                }
+            });
+
+            const conflictingDates: string[] = [];
+            for (const elv of allUnavail) {
+                let meta: any = {};
+                try {
+                    if (elv.timeZone && elv.timeZone.startsWith("{")) meta = JSON.parse(elv.timeZone);
+                } catch (e) {}
+
+                const matchUser = elv.userId === targetUserId;
+                const matchDocId = doctorId && (meta.doctorId === doctorId || elv.userId === doctorId);
+                const matchName = meta.doctorName && targetParts.some((p: string) => meta.doctorName.toLowerCase().includes(p));
+
+                if (matchUser || matchDocId || matchName) {
+                    const st = new Date(elv.startTime);
+                    const y = st.getFullYear();
+                    const m = String(st.getMonth() + 1).padStart(2, "0");
+                    const d = String(st.getDate()).padStart(2, "0");
+                    const dStr = `${y}-${m}-${d}`;
+                    if (!conflictingDates.includes(dStr)) conflictingDates.push(dStr);
+                }
+            }
+
+            if (conflictingDates.length > 0) {
+                return apiError(res, {
+                    statusCode: "BAD_REQUEST",
+                    message: `Doctor already has approved leave on ${conflictingDates.join(", ")}. Cannot re-apply for already booked dates.`,
+                });
+            }
 
             const createdLeaves: any[] = [];
             const cur = new Date(start);

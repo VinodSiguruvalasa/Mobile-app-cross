@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   X,
   Calendar,
@@ -11,6 +11,8 @@ import {
   PlusCircle,
   FileText,
   ShieldAlert,
+  Ban,
+  Check,
 } from "lucide-react";
 import { User, DoctorLeave } from "../../types/hms";
 import { doctorService } from "../../services/doctorService";
@@ -45,8 +47,8 @@ export const DoctorLeaveModal: React.FC<DoctorLeaveModalProps> = ({
     return `${year}-${month}-${day}`;
   };
 
-  const [startDate, setStartDate] = useState<string>(getTomorrowStr());
-  const [endDate, setEndDate] = useState<string>(getTomorrowStr());
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
   const [leaveType, setLeaveType] = useState<string>("Casual Leave");
   const [reason, setReason] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -59,25 +61,36 @@ export const DoctorLeaveModal: React.FC<DoctorLeaveModalProps> = ({
     setTimeout(() => setToastMsg(null), 3500);
   };
 
-  // Helper to match doctor name or doctor id
-  const isDoctorMatching = (lv: DoctorLeave) => {
-    if (lv.doctorId === activeDoctor.id || lv.userId === activeDoctor.id) return true;
-    if (lv.doctorName) {
-      const cleanTarget = lv.doctorName.toLowerCase();
-      const cleanCurrent = activeDoctor.name.toLowerCase().replace(/dr\.|\,md|md/gi, "").trim();
-      const parts = cleanCurrent.split(/\s+/).filter((p) => p.length >= 3);
-      if (parts.some((p) => cleanTarget.includes(p))) return true;
+  // Set of all dates where this doctor already has approved leave
+  const approvedLeaveDateSet = useMemo(() => {
+    return new Set(doctorLeaves.map((lv) => lv.date));
+  }, [doctorLeaves]);
+
+  // Find the first available upcoming date that is NOT already an approved leave
+  const getFirstAvailableDateStr = (bookedDates: Set<string>) => {
+    const now = new Date();
+    for (let i = 1; i <= 365; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const dStr = `${year}-${month}-${day}`;
+      if (!bookedDates.has(dStr)) {
+        return dStr;
+      }
     }
-    return false;
+    return getTomorrowStr();
   };
 
   const loadLeaves = async () => {
     setIsLoadingLeaves(true);
-    const res = await doctorService.getDoctorLeaves(activeDoctor.id);
+    const res = await doctorService.getDoctorLeaves(activeDoctor.id, activeDoctor.name);
     if (res.success && res.data) {
-      // Filter for active doctor
-      const myLeaves = res.data.filter(isDoctorMatching);
-      setDoctorLeaves(myLeaves.length > 0 ? myLeaves : res.data);
+      setDoctorLeaves(res.data);
+      const bookedSet = new Set(res.data.map((l) => l.date));
+      const firstFree = getFirstAvailableDateStr(bookedSet);
+      setStartDate(firstFree);
+      setEndDate(firstFree);
     }
     setIsLoadingLeaves(false);
   };
@@ -85,11 +98,47 @@ export const DoctorLeaveModal: React.FC<DoctorLeaveModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       loadLeaves();
-      setStartDate(getTomorrowStr());
-      setEndDate(getTomorrowStr());
       setReason("");
     }
   }, [isOpen]);
+
+  // Next 14 upcoming days for interactive calendar view
+  const upcomingCalendarDays = useMemo(() => {
+    const list = [];
+    const now = new Date();
+    for (let i = 1; i <= 14; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const dateStr = `${year}-${month}-${day}`;
+      const weekday = i === 1 ? "Tomorrow" : d.toLocaleDateString("en-US", { weekday: "short" });
+      const dayNum = d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+      const isBlocked = approvedLeaveDateSet.has(dateStr);
+      list.push({ dateStr, weekday, dayNum, isBlocked, offset: i });
+    }
+    return list;
+  }, [approvedLeaveDateSet]);
+
+  // Detect any conflicting dates in currently selected [startDate, endDate] range
+  const rangeConflicts = useMemo(() => {
+    if (!startDate) return [];
+    const start = new Date(startDate);
+    const end = new Date(endDate || startDate);
+    const cur = new Date(start);
+    const conflicts: string[] = [];
+    while (cur <= end) {
+      const year = cur.getFullYear();
+      const month = String(cur.getMonth() + 1).padStart(2, "0");
+      const day = String(cur.getDate()).padStart(2, "0");
+      const dStr = `${year}-${month}-${day}`;
+      if (approvedLeaveDateSet.has(dStr)) {
+        conflicts.push(dStr);
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    return conflicts;
+  }, [startDate, endDate, approvedLeaveDateSet]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +150,11 @@ export const DoctorLeaveModal: React.FC<DoctorLeaveModalProps> = ({
     const today = getTodayStr();
     if (startDate < today) {
       showToast("Cannot apply leave for past dates!");
+      return;
+    }
+
+    if (rangeConflicts.length > 0) {
+      showToast(`⚠️ You already have an approved leave on ${rangeConflicts.join(", ")}! Duplicate leave cannot be applied.`);
       return;
     }
 
@@ -124,7 +178,7 @@ export const DoctorLeaveModal: React.FC<DoctorLeaveModalProps> = ({
       onLeaveUpdated?.();
       setReason("");
     } else {
-      showToast("Failed to apply leave. Please try again.");
+      showToast(res.message || "Failed to apply leave. Please try again.");
     }
   };
 
@@ -193,8 +247,89 @@ export const DoctorLeaveModal: React.FC<DoctorLeaveModalProps> = ({
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
           <p className="leading-relaxed">
             Applying leave will <strong>block your schedule in the hospital booking calendar</strong>.
-            Admin and patients will not be able to book appointments on your blocked dates.
+            Dates already on approved leave are <strong>blocked out</strong> to prevent double-booking.
           </p>
+        </div>
+
+        {/* Visual Calendar Strip: Shows Blocked vs Available Upcoming Dates */}
+        <div className="space-y-1.5 bg-slate-950/80 p-3 rounded-2xl border border-slate-800/80">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="font-semibold text-slate-300 flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-blue-400" />
+              <span>Calendar Availability (Next 14 Days)</span>
+            </span>
+            <div className="flex items-center gap-2 text-[10px] font-mono">
+              <span className="flex items-center gap-1 text-rose-400">
+                <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
+                Blocked
+              </span>
+              <span className="flex items-center gap-1 text-slate-400">
+                <span className="w-2 h-2 rounded-full bg-slate-700 inline-block" />
+                Available
+              </span>
+              <span className="flex items-center gap-1 text-amber-400">
+                <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+                Selected
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none pt-1">
+            {upcomingCalendarDays.map((item) => {
+              const isBlocked = item.isBlocked;
+              const isSelected =
+                !isBlocked &&
+                startDate &&
+                item.dateStr >= startDate &&
+                item.dateStr <= (endDate || startDate);
+
+              return (
+                <button
+                  key={item.dateStr}
+                  type="button"
+                  disabled={isBlocked}
+                  onClick={() => {
+                    if (isBlocked) {
+                      showToast(`⚠️ ${item.dateStr} is already an approved leave!`);
+                      return;
+                    }
+                    setStartDate(item.dateStr);
+                    setEndDate(item.dateStr);
+                  }}
+                  className={`px-2.5 py-1.5 rounded-xl border text-center transition-all shrink-0 text-xs min-w-[70px] ${
+                    isBlocked
+                      ? "bg-rose-950/30 border-rose-500/40 text-rose-400 cursor-not-allowed opacity-75 shadow-none"
+                      : isSelected
+                      ? "bg-amber-600 text-white border-amber-500 font-bold shadow-md shadow-amber-600/30 cursor-pointer"
+                      : "bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white cursor-pointer"
+                  }`}
+                  title={
+                    isBlocked
+                      ? `${item.dateStr}: Already on approved leave (Blocked)`
+                      : `${item.dateStr}: Click to select this date`
+                  }
+                >
+                  <span className={`block text-[10px] font-bold leading-tight ${isBlocked ? "line-through opacity-80" : ""}`}>
+                    {item.weekday}
+                  </span>
+                  <span className="block text-[9px] font-mono opacity-80">{item.dayNum}</span>
+                  {isBlocked ? (
+                    <span className="mt-0.5 block text-[8px] font-mono font-bold text-rose-400 uppercase tracking-tight">
+                      On Leave
+                    </span>
+                  ) : isSelected ? (
+                    <span className="mt-0.5 block text-[8px] font-mono font-bold text-amber-200 uppercase tracking-tight">
+                      Selected
+                    </span>
+                  ) : (
+                    <span className="mt-0.5 block text-[8px] font-mono opacity-50">
+                      Open
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Leave Application Form */}
@@ -207,33 +342,76 @@ export const DoctorLeaveModal: React.FC<DoctorLeaveModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             {/* Start Date */}
             <div>
-              <label className="text-slate-400 block mb-1 font-semibold">Start Date *</label>
+              <label className="text-slate-400 block mb-1 font-semibold flex items-center justify-between">
+                <span>Start Date *</span>
+                {approvedLeaveDateSet.has(startDate) && (
+                  <span className="text-[10px] text-rose-400 font-bold font-mono">Blocked (On Leave)</span>
+                )}
+              </label>
               <input
                 type="date"
-                min={getTodayStr()}
+                min={getTomorrowStr()}
                 value={startDate}
                 onChange={(e) => {
-                  setStartDate(e.target.value);
-                  if (endDate < e.target.value) setEndDate(e.target.value);
+                  const val = e.target.value;
+                  if (approvedLeaveDateSet.has(val)) {
+                    showToast(`⚠️ Note: You already have an approved leave on ${val}!`);
+                  }
+                  setStartDate(val);
+                  if (endDate < val) setEndDate(val);
                 }}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-amber-500 [color-scheme:dark]"
+                className={`w-full bg-slate-900 border rounded-xl px-3 py-2 text-white font-mono focus:outline-none [color-scheme:dark] ${
+                  approvedLeaveDateSet.has(startDate)
+                    ? "border-rose-500 bg-rose-950/20 text-rose-300"
+                    : "border-slate-800 focus:border-amber-500"
+                }`}
                 required
               />
             </div>
 
             {/* End Date */}
             <div>
-              <label className="text-slate-400 block mb-1 font-semibold">End Date (Inclusive) *</label>
+              <label className="text-slate-400 block mb-1 font-semibold flex items-center justify-between">
+                <span>End Date (Inclusive) *</span>
+                {approvedLeaveDateSet.has(endDate) && (
+                  <span className="text-[10px] text-rose-400 font-bold font-mono">Blocked (On Leave)</span>
+                )}
+              </label>
               <input
                 type="date"
-                min={startDate || getTodayStr()}
+                min={startDate || getTomorrowStr()}
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-amber-500 [color-scheme:dark]"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (approvedLeaveDateSet.has(val)) {
+                    showToast(`⚠️ Note: You already have an approved leave on ${val}!`);
+                  }
+                  setEndDate(val);
+                }}
+                className={`w-full bg-slate-900 border rounded-xl px-3 py-2 text-white font-mono focus:outline-none [color-scheme:dark] ${
+                  approvedLeaveDateSet.has(endDate)
+                    ? "border-rose-500 bg-rose-950/20 text-rose-300"
+                    : "border-slate-800 focus:border-amber-500"
+                }`}
                 required
               />
             </div>
           </div>
+
+          {/* Leave Conflict Warning Banner */}
+          {rangeConflicts.length > 0 && (
+            <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs flex items-start gap-2.5 animate-pulse">
+              <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="block text-white font-bold text-xs">
+                  Leave Conflict Detected!
+                </strong>
+                <p className="text-[11px] text-rose-200/90 mt-0.5">
+                  You already have an approved leave on <strong>{rangeConflicts.join(", ")}</strong>. These dates are blocked out and cannot be re-applied. Please select open dates from the calendar above.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Leave Type */}
           <div>
@@ -269,10 +447,19 @@ export const DoctorLeaveModal: React.FC<DoctorLeaveModalProps> = ({
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="w-full py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-600/20 transition-all cursor-pointer"
+            disabled={isSubmitting || rangeConflicts.length > 0 || !startDate}
+            className={`w-full py-2.5 px-4 rounded-xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-all ${
+              rangeConflicts.length > 0
+                ? "bg-rose-800/60 border border-rose-700/50 text-rose-200 cursor-not-allowed"
+                : "bg-amber-600 hover:bg-amber-500 shadow-amber-600/20 cursor-pointer disabled:opacity-50"
+            }`}
           >
-            {isSubmitting ? (
+            {rangeConflicts.length > 0 ? (
+              <>
+                <Ban className="w-4 h-4 text-rose-300" />
+                <span>Blocked: Resolve Conflicting Date(s) Above</span>
+              </>
+            ) : isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>Blocking Calendar Dates in Database...</span>
