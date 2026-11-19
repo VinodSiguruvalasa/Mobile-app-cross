@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   X,
   Calendar,
@@ -13,6 +13,8 @@ import {
   ShieldAlert,
   Ban,
   Check,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { User, DoctorLeave } from "../../types/hms";
 import { doctorService } from "../../services/doctorService";
@@ -102,11 +104,25 @@ export const DoctorLeaveModal: React.FC<DoctorLeaveModalProps> = ({
     }
   }, [isOpen]);
 
-  // Next 14 upcoming days for interactive calendar view
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollLeft = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: -150, behavior: "smooth" });
+    }
+  };
+
+  const scrollRight = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: 150, behavior: "smooth" });
+    }
+  };
+
+  // Next 7 upcoming days for interactive calendar view (7 days window)
   const upcomingCalendarDays = useMemo(() => {
     const list = [];
     const now = new Date();
-    for (let i = 1; i <= 14; i++) {
+    for (let i = 1; i <= 7; i++) {
       const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
       const year = d.getFullYear();
       const month = String(d.getMonth() + 1).padStart(2, "0");
@@ -251,84 +267,117 @@ export const DoctorLeaveModal: React.FC<DoctorLeaveModalProps> = ({
           </p>
         </div>
 
-        {/* Visual Calendar Strip: Shows Blocked vs Available Upcoming Dates */}
-        <div className="space-y-1.5 bg-slate-950/80 p-3 rounded-2xl border border-slate-800/80">
-          <div className="flex items-center justify-between text-[11px]">
+        {/* Visual Calendar Strip: Shows Blocked vs Available Upcoming Dates (Next 7 Days) */}
+        <div className="space-y-2 bg-slate-950/80 p-3 rounded-2xl border border-slate-800/80">
+          <div className="flex items-center justify-between text-[11px] flex-wrap gap-2">
             <span className="font-semibold text-slate-300 flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-blue-400" />
-              <span>Calendar Availability (Next 14 Days)</span>
+              <span>Calendar Availability (Next 7 Days)</span>
             </span>
             <div className="flex items-center gap-2 text-[10px] font-mono">
-              <span className="flex items-center gap-1 text-rose-400">
+              <span className="flex items-center gap-1 text-rose-400 font-semibold">
                 <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
                 Blocked
               </span>
-              <span className="flex items-center gap-1 text-slate-400">
+              <span className="flex items-center gap-1 text-slate-400 font-semibold">
                 <span className="w-2 h-2 rounded-full bg-slate-700 inline-block" />
                 Available
               </span>
-              <span className="flex items-center gap-1 text-amber-400">
+              <span className="flex items-center gap-1 text-amber-400 font-semibold">
                 <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
                 Selected
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none pt-1">
-            {upcomingCalendarDays.map((item) => {
-              const isBlocked = item.isBlocked;
-              const isSelected =
-                !isBlocked &&
-                startDate &&
-                item.dateStr >= startDate &&
-                item.dateStr <= (endDate || startDate);
+          {/* Scroll Area with Left & Right Scroll Buttons */}
+          <div className="relative flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={scrollLeft}
+              className="p-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer shadow-md hover:border-slate-700"
+              title="Scroll left"
+            >
+              <ChevronLeft className="w-4 h-4 text-blue-400" />
+            </button>
 
-              return (
-                <button
-                  key={item.dateStr}
-                  type="button"
-                  disabled={isBlocked}
-                  onClick={() => {
-                    if (isBlocked) {
-                      showToast(`⚠️ ${item.dateStr} is already an approved leave!`);
-                      return;
+            <div
+              ref={scrollContainerRef}
+              className="flex-1 flex items-center gap-1.5 overflow-x-auto pb-2 pt-1 scroll-smooth"
+              style={{
+                scrollbarWidth: "thin",
+                scrollbarColor: "#3b82f6 #0f172a",
+              }}
+            >
+              {upcomingCalendarDays.map((item) => {
+                const isBlocked = item.isBlocked;
+                const isSelected =
+                  !isBlocked &&
+                  startDate &&
+                  item.dateStr >= startDate &&
+                  item.dateStr <= (endDate || startDate);
+
+                return (
+                  <button
+                    key={item.dateStr}
+                    type="button"
+                    disabled={isBlocked}
+                    onClick={() => {
+                      if (isBlocked) {
+                        showToast(`⚠️ ${item.dateStr} is already an approved leave!`);
+                        return;
+                      }
+                      setStartDate(item.dateStr);
+                      setEndDate(item.dateStr);
+                    }}
+                    className={`px-2.5 py-1.5 rounded-xl border text-center transition-all shrink-0 text-xs min-w-[72px] ${
+                      isBlocked
+                        ? "bg-rose-950/30 border-rose-500/40 text-rose-400 cursor-not-allowed opacity-75 shadow-none"
+                        : isSelected
+                        ? "bg-amber-600 text-white border-amber-500 font-bold shadow-md shadow-amber-600/30 cursor-pointer"
+                        : "bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white cursor-pointer"
+                    }`}
+                    title={
+                      isBlocked
+                        ? `${item.dateStr}: Already on approved leave (Blocked)`
+                        : `${item.dateStr}: Click to select this date`
                     }
-                    setStartDate(item.dateStr);
-                    setEndDate(item.dateStr);
-                  }}
-                  className={`px-2.5 py-1.5 rounded-xl border text-center transition-all shrink-0 text-xs min-w-[70px] ${
-                    isBlocked
-                      ? "bg-rose-950/30 border-rose-500/40 text-rose-400 cursor-not-allowed opacity-75 shadow-none"
-                      : isSelected
-                      ? "bg-amber-600 text-white border-amber-500 font-bold shadow-md shadow-amber-600/30 cursor-pointer"
-                      : "bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white cursor-pointer"
-                  }`}
-                  title={
-                    isBlocked
-                      ? `${item.dateStr}: Already on approved leave (Blocked)`
-                      : `${item.dateStr}: Click to select this date`
-                  }
-                >
-                  <span className={`block text-[10px] font-bold leading-tight ${isBlocked ? "line-through opacity-80" : ""}`}>
-                    {item.weekday}
-                  </span>
-                  <span className="block text-[9px] font-mono opacity-80">{item.dayNum}</span>
-                  {isBlocked ? (
-                    <span className="mt-0.5 block text-[8px] font-mono font-bold text-rose-400 uppercase tracking-tight">
-                      On Leave
+                  >
+                    <span className={`block text-[10px] font-bold leading-tight ${isBlocked ? "line-through opacity-80" : ""}`}>
+                      {item.weekday}
                     </span>
-                  ) : isSelected ? (
-                    <span className="mt-0.5 block text-[8px] font-mono font-bold text-amber-200 uppercase tracking-tight">
-                      Selected
-                    </span>
-                  ) : (
-                    <span className="mt-0.5 block text-[8px] font-mono opacity-50">
-                      Open
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+                    <span className="block text-[9px] font-mono opacity-80">{item.dayNum}</span>
+                    {isBlocked ? (
+                      <span className="mt-0.5 block text-[8px] font-mono font-bold text-rose-400 uppercase tracking-tight">
+                        On Leave
+                      </span>
+                    ) : isSelected ? (
+                      <span className="mt-0.5 block text-[8px] font-mono font-bold text-amber-200 uppercase tracking-tight">
+                        Selected
+                      </span>
+                    ) : (
+                      <span className="mt-0.5 block text-[8px] font-mono opacity-50">
+                        Open
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={scrollRight}
+              className="p-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-all shrink-0 cursor-pointer shadow-md hover:border-slate-700"
+              title="Scroll right"
+            >
+              <ChevronRight className="w-4 h-4 text-blue-400" />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between text-[10px] text-slate-500 px-1 pt-0.5">
+            <span>Showing next 7 days</span>
+            <span>Use &lt; &gt; arrows or swipe to scroll</span>
           </div>
         </div>
 
