@@ -79,17 +79,9 @@ export const DoctorHub: React.FC<DoctorHubProps> = ({
         setDbLabConfigs(res.data);
       }
     });
-    doctorService.getDoctorLeaves(activeDoctor.id).then((res) => {
+    doctorService.getDoctorLeaves(activeDoctor.id, activeDoctor.name).then((res) => {
       if (res.success && res.data) {
-        const cleanCurrent = activeDoctor.name.toLowerCase().replace(/dr\.|\,md|md/gi, "").trim();
-        const parts = cleanCurrent.split(/\s+/).filter((p) => p.length >= 3);
-        const myLeaves = res.data.filter(
-          (lv) =>
-            lv.doctorId === activeDoctor.id ||
-            lv.userId === activeDoctor.id ||
-            (lv.doctorName && parts.some((p) => lv.doctorName.toLowerCase().includes(p)))
-        );
-        setDoctorLeavesCount(myLeaves.length);
+        setDoctorLeavesCount(res.data.length);
       }
     });
     setPrescriptions(getPrescriptions());

@@ -11,6 +11,7 @@ import {
   X,
   Loader2,
   Check,
+  ChevronLeft,
   ChevronRight,
   Sparkles,
   ChevronDown,
@@ -819,42 +820,75 @@ export const AdminAppointments: React.FC<AdminAppointmentsProps> = ({
                   </span>
                 </div>
 
-                {/* Quick Date Selection Pills */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                  {allowedSchedDates.map((item) => {
-                    const isSelected = schedDate === item.dateStr;
-                    const onLeave = selectedDoctorId ? isDoctorOnLeave(selectedDoctorId, item.dateStr) : false;
-                    return (
-                      <button
-                        key={item.dateStr}
-                        type="button"
-                        onClick={() => {
-                          if (onLeave) {
-                            showToast("⚠️ Selected doctor is on approved leave on this date! Please choose another date or doctor.");
-                            return;
-                          }
-                          setSchedDate(item.dateStr);
-                          setTimeSlot("");
-                        }}
-                        className={`px-2.5 py-1.5 rounded-xl border text-center transition-all shrink-0 cursor-pointer ${
-                          onLeave
-                            ? "bg-amber-500/10 border-amber-500/40 text-amber-400 opacity-70 cursor-not-allowed hover:bg-amber-500/15"
-                            : isSelected
-                            ? "bg-emerald-600 text-white border-emerald-500 font-bold shadow-md shadow-emerald-600/30"
-                            : "bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white"
-                        }`}
-                        title={onLeave ? "Doctor is on leave on this date" : item.weekday}
-                      >
-                        <span className="block text-[10px] font-bold leading-tight">{item.weekday}</span>
-                        <span className="block text-[9px] font-mono opacity-80">{item.dayNum}</span>
-                        {onLeave && (
-                          <span className="mt-0.5 block text-[8px] font-mono font-bold text-amber-400 uppercase tracking-tight">
-                            On Leave
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
+                {/* Quick Date Selection Pills with Scroll Controls */}
+                <div className="relative flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById("admin-sched-dates-scroll");
+                      if (el) el.scrollBy({ left: -120, behavior: "smooth" });
+                    }}
+                    className="p-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition-all shrink-0 cursor-pointer shadow-sm"
+                    title="Scroll left"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5 text-emerald-400" />
+                  </button>
+
+                  <div
+                    id="admin-sched-dates-scroll"
+                    className="flex-1 flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5 scroll-smooth"
+                    style={{
+                      scrollbarWidth: "thin",
+                      scrollbarColor: "#10b981 #020617",
+                    }}
+                  >
+                    {allowedSchedDates.map((item) => {
+                      const isSelected = schedDate === item.dateStr;
+                      const onLeave = selectedDoctorId ? isDoctorOnLeave(selectedDoctorId, item.dateStr) : false;
+                      return (
+                        <button
+                          key={item.dateStr}
+                          type="button"
+                          onClick={() => {
+                            if (onLeave) {
+                              showToast("⚠️ Selected doctor is on approved leave on this date! Please choose another date or doctor.");
+                              return;
+                            }
+                            setSchedDate(item.dateStr);
+                            setTimeSlot("");
+                          }}
+                          className={`px-2.5 py-1.5 rounded-xl border text-center transition-all shrink-0 cursor-pointer ${
+                            onLeave
+                              ? "bg-amber-500/10 border-amber-500/40 text-amber-400 opacity-70 cursor-not-allowed hover:bg-amber-500/15"
+                              : isSelected
+                              ? "bg-emerald-600 text-white border-emerald-500 font-bold shadow-md shadow-emerald-600/30"
+                              : "bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white"
+                          }`}
+                          title={onLeave ? "Doctor is on leave on this date" : item.weekday}
+                        >
+                          <span className="block text-[10px] font-bold leading-tight">{item.weekday}</span>
+                          <span className="block text-[9px] font-mono opacity-80">{item.dayNum}</span>
+                          {onLeave && (
+                            <span className="mt-0.5 block text-[8px] font-mono font-bold text-amber-400 uppercase tracking-tight">
+                              On Leave
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById("admin-sched-dates-scroll");
+                      if (el) el.scrollBy({ left: 120, behavior: "smooth" });
+                    }}
+                    className="p-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 transition-all shrink-0 cursor-pointer shadow-sm"
+                    title="Scroll right"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5 text-emerald-400" />
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
