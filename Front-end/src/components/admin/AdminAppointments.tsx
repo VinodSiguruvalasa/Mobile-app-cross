@@ -11,6 +11,7 @@ import {
   X,
   Loader2,
   Check,
+  ChevronLeft,
   ChevronRight,
   Sparkles,
   ChevronDown,

@@ -150,8 +150,11 @@ export interface Admission {
   roomNumber: string;
   bedNumber: string;
   admittedDate: string;
+  admitDate?: string;
   dischargedDate?: string;
   admittingDoctor: string;
+  doctorId?: string;
+  diagnosis?: string;
   reasonForAdmission: string;
   status: "Admitted" | "Discharged" | "Transferred";
   cateringDietType: string;
