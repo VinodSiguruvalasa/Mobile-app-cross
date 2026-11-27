@@ -210,7 +210,7 @@ export const formatTime = (date: Date): string => {
 };
 
 const baseUrl = (): string =>
-    process.env.PATIENT_PORTAL_URL ?? "http://localhost:3000";
+    process.env.PATIENT_PORTAL_URL ?? "http://localhost:3020";
 
 export const getAppointmentLink = (appointmentId: string): string =>
     `${baseUrl()}/patient-portal/appointment/${appointmentId}`;
